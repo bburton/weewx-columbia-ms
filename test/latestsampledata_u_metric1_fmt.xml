@@ -1,0 +1,34 @@
+<oriondata version='1.1' station='Metric Units 1 formatted'>
+<meas name='mtSampTime'>2020/02/18 03:19:25</meas>
+<meas name='mtWindChill' unit='degreeC' >-17.8</meas>
+<meas name='mtDegreeDay' unit='degreeC' >2891.8</meas>
+<meas name='mtAvgTempToday' unit='degreeC' >-12.8</meas>
+<meas name='mtEvapotranspiration' unit='mmRain' >-0.041</meas>
+<meas name='mtWindSpeed' unit='kmPerHour' >2.8</meas>
+<meas name='mtRawWindDir' unit='degrees' >101</meas>
+<meas name='mtAdjWindDir' unit='degrees' >101</meas>
+<meas name='mt3SecRollAvgWindSpeed' unit='kmPerHour' >2.7</meas>
+<meas name='mt3SecRollAvgWindDir' unit='degrees' >98</meas>
+<meas name='mt2MinRollAvgWindSpeed' unit='kmPerHour' >1.5</meas>
+<meas name='mt2MinRollAvgWindDir' unit='degrees' >155</meas>
+<meas name='mt10MinRollAvgWindSpeed' unit='kmPerHour' >1.4</meas>
+<meas name='mt10MinRollAvgWindDir' unit='degrees' >80</meas>
+<meas name='mt60MinRollAvgWindSpeed' unit='kmPerHour' >1.5</meas>
+<meas name='mt60MinRollAvgWindDir' unit='degrees' >62</meas>
+<meas name='mt60MinWindGustDir' unit='degrees' >100</meas>
+<meas name='mt60MinWindGustSpeed' unit='kmPerHour' >2.8</meas>
+<meas name='mt60MinWindGustTime'>2020/02/18 03:19:25</meas>
+<meas name='mt10MinWindGustDir' unit='degrees' >100</meas>
+<meas name='mt10MinWindGustSpeed' unit='kmPerHour' >2.8</meas>
+<meas name='mt10MinWindGustTime'>2020/02/18 03:19:25</meas>
+<meas name='mt2MinWindGustDir' unit='degrees' >100</meas>
+<meas name='mt2MinWindGustSpeed' unit='kmPerHour' >2.8</meas>
+<meas name='mt2MinWindGustTime'>2020/02/18 03:19:25</meas>
+<meas name='mtRainToday' unit='mmRain' >0.000</meas>
+<meas name='mtRainThisWeek' unit='mmRain' >0.000</meas>
+<meas name='mtRainThisMonth' unit='mmRain' >17.018</meas>
+<meas name='mtRainThisYear' unit='mmRain' >77.470</meas>
+<meas name='mtRainRate' unit='mmPerHour' >0.000</meas>
+<meas name='mtRainLastHr' unit='mmPerHour' >0.000</meas>
+<meas name='mtPressureTendency' unit='unitless_0' >0</meas>
+</oriondata>

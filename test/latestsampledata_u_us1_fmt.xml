@@ -1,0 +1,54 @@
+<oriondata version='1.1' station='US Units 1 formatted'>
+<meas name='mtSampTime'>2020/02/18 03:17:09</meas>
+<meas name='mtTemp1' unit='degreeF' >7.7</meas>
+<meas name='mtWindChill' unit='degreeF' >7.7</meas>
+<meas name='mtHeatIndex' unit='degreeF' >8.0</meas>
+<meas name='mtDewPoint' unit='degreeF' >0.4</meas>
+<meas name='mtDegreeDay' unit='degreeF' >5237.3</meas>
+<meas name='mtDensityAltitude' unit='feetAlt' >-3759</meas>
+<meas name='mtAvgTempToday' unit='degreeF' >9.0</meas>
+<meas name='mtWetBulbGlobeTemp' unit='degreeF' >26.4</meas>
+<meas name='mtSaturatedVaporPressure' unit='inchesHg' >0.06</meas>
+<meas name='mtVaporPressure' unit='inchesHg' >0.05</meas>
+<meas name='mtDryAirPressure' unit='inchesHg' >30.05</meas>
+<meas name='mtDryAirDensity' unit='poundsPerFt3' >0.0853</meas>
+<meas name='mtAbsoluteHumidity' unit='poundsPerFt3' >0.0001</meas>
+<meas name='mtAirDensityRatio' unit='percent' >1</meas>
+<meas name='mtAdjustedAltitude' unit='feetAlt' >-3298</meas>
+<meas name='mtSAECorrectionFactor'>0.908</meas>
+<meas name='mtWetAirDensity' unit='poundsPerFt3' >0.0854</meas>
+<meas name='mtWetBulbTemp' unit='degreeF' >7.7</meas>
+<meas name='mtEvapotranspiration' unit='inchesRain' >0.0049</meas>
+<meas name='mtRelHumidity' unit='percent' >71</meas>
+<meas name='mtWindSpeed' unit='mph' >0.4</meas>
+<meas name='mtRawWindDir' unit='degrees' >0</meas>
+<meas name='mtAdjWindDir' unit='degrees' >0</meas>
+<meas name='mt3SecRollAvgWindSpeed' unit='mph' >0.4</meas>
+<meas name='mt3SecRollAvgWindDir' unit='degrees' >0</meas>
+<meas name='mt2MinRollAvgWindSpeed' unit='mph' >0.6</meas>
+<meas name='mt2MinRollAvgWindDir' unit='degrees' >346</meas>
+<meas name='mt10MinRollAvgWindSpeed' unit='mph' >0.8</meas>
+<meas name='mt10MinRollAvgWindDir' unit='degrees' >31</meas>
+<meas name='mt60MinRollAvgWindSpeed' unit='mph' >0.9</meas>
+<meas name='mt60MinRollAvgWindDir' unit='degrees' >60</meas>
+<meas name='mt60MinWindGustDir' unit='degrees' >244</meas>
+<meas name='mt60MinWindGustSpeed' unit='mph' >3.0</meas>
+<meas name='mt60MinWindGustTime'>2020/02/18 02:46:45</meas>
+<meas name='mt10MinWindGustDir' unit='degrees' >134</meas>
+<meas name='mt10MinWindGustSpeed' unit='mph' >1.8</meas>
+<meas name='mt10MinWindGustTime'>2020/02/18 03:11:33</meas>
+<meas name='mt2MinWindGustDir' unit='degrees' >294</meas>
+<meas name='mt2MinWindGustSpeed' unit='mph' >1.4</meas>
+<meas name='mt2MinWindGustTime'>2020/02/18 03:16:01</meas>
+<meas name='mtRainToday' unit='inchesRain' >0.0000</meas>
+<meas name='mtRainThisWeek' unit='inchesRain' >0.0031</meas>
+<meas name='mtRainThisMonth' unit='inchesRain' >0.6756</meas>
+<meas name='mtRainThisYear' unit='inchesRain' >3.0556</meas>
+<meas name='mtRainRate' unit='inchesPerHour' >0.0000</meas>
+<meas name='mtRainLastHr' unit='inchesPerHour' >0.0000</meas>
+<meas name='mtPrecipType'>0.000</meas>
+<meas name='mtRawBaromPress' unit='inchesHg' >30.09</meas>
+<meas name='mtAdjBaromPress' unit='inchesHg' >30.09</meas>
+<meas name='mtPressureTendency' unit='unitless_0' >0</meas>
+<meas name='mtTemp_2' unit='degreeF' >32.8</meas>
+</oriondata>
