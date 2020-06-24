@@ -85,7 +85,7 @@ import socket
 from xml.etree import ElementTree
 
 DRIVER_NAME = 'ColumbiaMicroServer'
-DRIVER_VERSION = '0.1'
+DRIVER_VERSION = '0.2.0'
 DRIVER_SHORT_NAME = 'columbia_ms'
 
 try:
@@ -98,6 +98,7 @@ except ImportError:
 
 import weewx
 import weewx.drivers
+import weewx.wxformulas
 
 try:
     # Test for new-style weewx logging by trying to import weeutil.logger
@@ -203,6 +204,7 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
         'windGust': 'mt2MinWindGustSpeed',
         'windGustDir': 'mt2MinWindGustDir',
         'outHumidity': 'mtRelHumidity',
+        'rainTotal': 'mtRainThisMonth',
         'rainRate': 'mtRainRate',
         'dewpoint': 'mtDewPoint',
         'windchill': 'mtWindChill',
@@ -224,6 +226,7 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
         'mt2MinWindGustSpeed': 1,
         'mt2MinWindGustDir': 1,
         'mtRelHumidity': 1,
+        'mtRainThisMonth': 1,
         'mtRainRate': 1,
         'mtDewPoint': 1,
         'mtWindChill': 1,
@@ -251,6 +254,7 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
         loginf("sensor map: %s" % self.sensor_map)
         self.max_tries = int(stn_dict.get('max_tries', 3))
         self.retry_wait = int(stn_dict.get('retry_wait', 5))
+        self.last_rain_total = None
 
     @property
     def hardware_name(self):
@@ -274,6 +278,7 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
                 for k in self.sensor_map:
                     if self.sensor_map[k] in pkt:
                         packet[k] = pkt[self.sensor_map[k]]
+                self._calculate_rain_delta(packet)
                 yield packet
                 if self.poll_interval:
                     time.sleep(self.poll_interval)
@@ -284,6 +289,11 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
         else:
             raise weewx.WeeWxIOError("max tries %s exceeded" % self.max_tries)
 
+
+    def _calculate_rain_delta(self, packet):
+        """Convert from rain total to rain delta."""
+        packet['rain'] = weewx.wxformulas.calculate_rain(packet['rainTotal'], self.last_rain_total)
+        self.last_rain_total = packet['rainTotal']
 
 class ColumbiaMicroServerStation(object):
     @staticmethod
