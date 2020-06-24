@@ -1,2 +1,5 @@
+0.2.0 24-Jun-2020
+* Now calculates the "rain" field using the delta of the mtRainThisMonth field.
+
 0.1.0 04-Mar-2020
-* initial public release
+* Initial public release
