@@ -28,16 +28,16 @@ time.
    `http://weewx.com/docs/usersguide.htm#installing`
 
 1) download the driver
-   `wget https://github.com/bburton/weewx-columbia-ms/releases/download/v0.2.0/weewx-columbia-ms-0.2.0.tar.gz`
+   `wget https://github.com/bburton/weewx-columbia-ms/releases/download/v1.0.0/weewx-columbia-ms-1.0.0.tar.gz`
 
 1) install the driver
-   `sudo wee_extension --install weewx-columbia-ms-0.2.0.tar.gz`
+   `sudo wee_extension --install weewx-columbia-ms-1.0.0.tar.gz`
 
 1) configure the driver
-   `sudo wee_config --reconfigure --driver=user.columbia-ms'
+   `sudo wee_config --reconfigure --driver=user.columbia-ms`
 
 1) start weewx
-   `sudo /etc/init.d/weewx start`
+   `sudo /etc/init.d/weewx start` or `sudo systemctl start weewx`
 
 ## Driver options
 
@@ -45,12 +45,20 @@ Use the host and port options to tell the driver where to find the MicroServer:
 
 ```
 [ColumbiaMicroServer]
-    driver = user.columbia-ms
-    port = 80
-    host = 192.168.0.50
-    poll_interval = 10  # how often to query the MicroServer, in seconds
-    max_tries = 3
-    retry_wait = 5  
+    # This section is for the Columbia Weather Systems MicroServer.
+
+    # The driver to use
+    driver = user.columbia_ms
+
+    # How many times per minute to poll the MicroServer
+    polls_per_minute = 4
+
+    # Number of seconds to shift polling earlier so loop packet completes
+    # processing before the top of the minute.
+    poll_lead_seconds = 5
+
+    # Number of retries to perform a quick retry
+    quick_retries = 3
 ```
 
 ## TODO

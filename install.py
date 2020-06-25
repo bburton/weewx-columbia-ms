@@ -10,7 +10,7 @@ def loader():
 class ColumbiaMicroServerInstaller(ExtensionInstaller):
     def __init__(self):
         super(ColumbiaMicroServerInstaller, self).__init__(
-            version="0.2.0",
+            version="1.0.0",
             name='columbia_ms',
             description='Capture weather data from a Columbia Weather Systems MicroServer',
             author="William Burton",

@@ -4,11 +4,31 @@
 
 """Driver for collecting data from the Columbia Weather Systems MicroServer.
 
-This is directly modeled after the weewx-ip100 plugin
+This driver is loosely based on the weewx-ip100 driver
 (https://github.com/weewx/weewx/wiki/ip100) by Matthew Wall.
 
-This file contains a weewx driver.
+This driver has been tested against WeeWX 3.9.2 under Python 2.7 and 
+WeeWX 4 under Python 3.6.
 
+To obtain weather data from the MicroServer, this driver polls the MicroServer 
+via HTTP downloading the Enhanced XML version of the current data from 
+/tmp/latestsampledata_u.xml. For more information on the format, see the 
+Columbia Weather Systems MicroServer User Manual, Appendix B, Enhanced Web
+Server available at http://columbiaweather.com/resources/manuals-and-brochures
+in PDF format.
+
+As the enhanced XML file downloaded includes the units of each item as an 
+attribute, the driver uses that to determine if the station temperatures are 
+configured in celcius or farenheight, rain is in mm, cm or inches, wind 
+speed in kph, mph or knots, etc. The driver then groups the data by similar  
+units and returns each group as a separate loop packet with the appropriate  
+units specified.
+
+In addition, wind data for speed and direction can be returned more frequently
+to support near real-time updates but other data is returned only once a minute 
+a few seconds before the top of the minute so the data can be processed right
+before each archive interval.
+ 
 Installation
 
 Put this file in the bin/user directory.
@@ -21,24 +41,13 @@ Add the following to weewx.conf:
     driver = user.columbia_ms
     port = 80
     host = 192.168.0.50
-    poll_interval = 10 # how often to query the MicroServer, in seconds
-    max_tries = 3
-    retry_wait = 5  
-    
+    polls_per_minute = 4  # How many times per minute to poll the MicroServer
+    poll_lead_seconds = 5  # Number of seconds to shift polling earlier
+    quick_retries = 3
+   
 TODO
 
-1. Verify units in XML input file with assumptions in the code.
-
-The XML file downloaded from the MicroServer is the enhanced version which
-includes the units of each item as an attribute so it's possible to determine 
-if the station temperatures are configured in celcius or farenheight, rain 
-is in mm, cm or inches, wind speed in kph, mph or knots, etc. However, at 
-present, the code assumes all US/imperial units have been configured and 
-does not check these units. At the very least, checking needs to be 
-implemented to avoid corrupt data or better if the driver can automatically
-convert data if appropriate.
-
-2. Implement a way to load historical data.
+1. Implement a way to load historical data.
 
 The MicroServer by default logs one record per minute to a CSV file on a
 microSD card with a new CSV file started for each day. These CSV files are
@@ -47,7 +56,7 @@ files or days of data on the MicroServer.
 
 Probably the best way to import historical data is to implement a new import
 configuration class based on the Weather Underground wuimport.py implementation 
-used with the weeimport utility. This requires the following functionality:
+used with the wee_import utility. This requires the following functionality:
 
 a. Option to download all or a date range of files from the MicroServer. 
    This will require logging in as the admin user and screen-scraping the 
@@ -69,11 +78,10 @@ The MicroServer does not have any API's to support the following functions:
 * Setting hardware configuration
 * Update historical data automatically within this driver.
 
-The best that's available is a web-based administration console which would 
-have to be reverse-engineered to enable this driver to perform these functions. 
 Since there already exists a full-featured web-based administration console, 
 spending much effort to duplicate the console functionality is probably not 
-worth the effort.
+worth the effort as screen-scraping and reverse-engineering would have to be
+done.
 
 """
 
@@ -85,7 +93,7 @@ import socket
 from xml.etree import ElementTree
 
 DRIVER_NAME = 'ColumbiaMicroServer'
-DRIVER_VERSION = '0.2.0'
+DRIVER_VERSION = '1.0.0'
 DRIVER_SHORT_NAME = 'columbia_ms'
 
 try:
@@ -97,6 +105,7 @@ except ImportError:
     from urllib2 import Request, urlopen, HTTPError, URLError
 
 import weewx
+import weewx.units
 import weewx.drivers
 import weewx.wxformulas
 
@@ -155,12 +164,15 @@ class ColumbiaMicroServerConfEditor(weewx.drivers.AbstractConfEditor):
     # The driver to use
     driver = user.columbia_ms
 
-    # How often to poll the MicroServer, in seconds
-    poll_interval = 10
+    # How many times per minute to poll the MicroServer
+    polls_per_minute = 4
 
-    max_tries = 3
-    retry_wait = 5  
+    # Number of seconds to shift polling earlier so loop packet completes
+    # processing before the top of the minute.
+    poll_lead_seconds = 5
 
+    # Number of retries to perform a quick retry
+    quick_retries = 3
 """
 
 
@@ -196,45 +208,42 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
     # Default map for the Columbia MicroServer to WeeWX.
     DEFAULT_SENSOR_MAP = {
         #'dateTimeHW': 'mtSampTime',
-        'outTemp': 'mtTemp1',
-        'outHumidity': 'mtRelHumidity',
-        'barometer': 'mtAdjBaromPress',
         'windSpeed': 'mtWindSpeed',
         'windDir': 'mtAdjWindDir',
         'windGust': 'mt2MinWindGustSpeed',
         'windGustDir': 'mt2MinWindGustDir',
-        'outHumidity': 'mtRelHumidity',
-        'rainTotal': 'mtRainThisMonth',
-        'rainRate': 'mtRainRate',
-        'dewpoint': 'mtDewPoint',
+
+        'outTemp': 'mtTemp1',
         'windchill': 'mtWindChill',
+        'dewpoint': 'mtDewPoint',
         'heatindex': 'mtHeatIndex',
-        'radiation': 'mtSolarRadiaton',
         'extraTemp1': 'mtTemp_2',
         'extraTemp2': 'mtTemp_3',
-        'extraTemp3': 'mtTemp_4'
+        'extraTemp3': 'mtTemp_4',
+
+        'rainTotal': 'mtRainThisMonth',
+        'rainRate': 'mtRainRate',
+
+        'barometer': 'mtAdjBaromPress',
+
+        'outHumidity': 'mtRelHumidity',
+        'radiation': 'mtSolarRadiaton',
     }
-    # Map is used when parsing the MicroServer XML to determine if an input 
-    # element should be passed back or not.
-    XML_INPUT_ELEMENTS = {
-        #'mtSampTime': 1,
-        'mtTemp1': 1,
-        'mtRelHumidity': 1,
-        'mtAdjBaromPress': 1,
-        'mtWindSpeed': 1,
-        'mtAdjWindDir': 1,
-        'mt2MinWindGustSpeed': 1,
-        'mt2MinWindGustDir': 1,
-        'mtRelHumidity': 1,
-        'mtRainThisMonth': 1,
-        'mtRainRate': 1,
-        'mtDewPoint': 1,
-        'mtWindChill': 1,
-        'mtHeatIndex': 1,
-        'mtSolarRadiaton': 1,
-        'mtTemp_2': 1,
-        'mtTemp_3': 1,
-        'mtTemp_4': 1
+
+    # Map device units from XML attribute to WeeWX units.
+    # See http://www.weewx.com/docs/customizing.htm#units
+    UNITS_MAP = {
+        'degreeC': weewx.METRICWX,
+        'degreeF': weewx.US,
+        'inchesHg': weewx.US,
+        'inchesPerHour': weewx.US,
+        'inchesRain': weewx.US,
+        'kmPerHour': weewx.METRIC,
+        #'knots': weewx.US,
+        'metersPerSecond': weewx.METRICWX,
+        'mmPerHour': weewx.METRICWX,
+        'mmRain': weewx.METRICWX,
+        'mph': weewx.US,
     }
 
     def __init__(self, **stn_dict):
@@ -246,14 +255,17 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
             port = int(stn_dict.get('port', 80))
             self.station_url = "http://%s:%s/tmp/latestsampledata_u.xml" % (host, port)
         loginf("station url is %s" % self.station_url)
-        self.poll_interval = int(stn_dict.get('poll_interval', 10))
+        self.polls_per_minute = int(stn_dict.get('polls_per_minute', 4))
+        loginf("polls_per_minute is %s" % self.polls_per_minute)
+        self.poll_interval = 60 / self.polls_per_minute
         loginf("poll interval is %s" % self.poll_interval)
+        self.poll_lead_seconds = int(stn_dict.get('poll_lead_seconds', 5))
+        loginf("poll_lead_seconds is %s" % self.poll_lead_seconds)
         self.sensor_map = dict(ColumbiaMicroServerDriver.DEFAULT_SENSOR_MAP)
         if 'sensor_map' in stn_dict:
             self.sensor_map.update(stn_dict['sensor_map'])
         loginf("sensor map: %s" % self.sensor_map)
-        self.max_tries = int(stn_dict.get('max_tries', 3))
-        self.retry_wait = int(stn_dict.get('retry_wait', 5))
+        self.quick_retries = int(stn_dict.get('quick_retries', 3))
         self.last_rain_total = None
 
     @property
@@ -261,34 +273,77 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
         return "Columbia Weather Systems MicroServer"
 
     def genLoopPackets(self):
+        pkt_grp = None
         ntries = 0
-        while ntries < self.max_tries:
-            ntries += 1
+        # Assume the first time being called is the last polling interval for 
+        # the minute so all packet types are returned from the first poll 
+        # after startup. This is only an issue if loop packets are being  
+        # returned to web pages for near real-time updates.
+        last_poll_this_minute = True
+        while True:
             try:
                 data = ColumbiaMicroServerStation.get_data(self.station_url)
                 logdbg("genLoopPackets: raw data: %s" % data)
-                pkt = ColumbiaMicroServerStation.parse_data(data)
-                logdbg("genLoopPackets: parsed packet: %s" % pkt)
+                pkt_grp = ColumbiaMicroServerStation.parse_data(data)
                 ntries = 0
-                packet = {'dateTime': int(time.time() + 0.5)}
-                if pkt['base_units'] == 'English':
-                    packet['usUnits'] = weewx.US
-                else:
-                    packet['usUnits'] = weewx.METRICWX
-                for k in self.sensor_map:
-                    if self.sensor_map[k] in pkt:
-                        packet[k] = pkt[self.sensor_map[k]]
-                self._calculate_rain_delta(packet)
-                yield packet
-                if self.poll_interval:
-                    time.sleep(self.poll_interval)
             except weewx.WeeWxIOError as e:
-                loginf("failed attempt %s of %s: %s" %
-                       (ntries, self.max_tries, e))
-                time.sleep(self.retry_wait)
-        else:
-            raise weewx.WeeWxIOError("max tries %s exceeded" % self.max_tries)
+                logerr("genLoopPackets: failed attempt %s of %s: %s" % (ntries, self.quick_retries, e))
+                ntries += 1
+                # First few retries are made quickly then more slowly
+                if ntries <= self.quick_retries:
+                    self._wait_for_next_poll_interval()
+                else:
+                    # Wait until the next major poll interval this minute
+                    while not self._wait_for_next_poll_interval():
+                        pass
+                continue
+            # Iterate over each packet group returning the packet type and dict
+            for pkt_type, pkt in pkt_grp.items():
+                logdbg("genLoopPackets: parsed packet: %s" % pkt)
+                packet_time = int(time.time() + 0.5)
+                # If not a wind packet type, don't returning the packet unless
+                # this is the last polling interval for the minute.
+                if pkt_type != 'wind' and not last_poll_this_minute:
+                    continue
+                packet = {'dateTime': packet_time}
+                # Translate from input packet field names to output names
+                for field in self.sensor_map:
+                    if self.sensor_map[field] in pkt:
+                        packet[field] = pkt[self.sensor_map[field]]
+                # Translate the base_units type to one of the WeeWX unit types
+                base_units = pkt['base_units']
+                if base_units in ColumbiaMicroServerDriver.UNITS_MAP:
+                    packet['usUnits'] = ColumbiaMicroServerDriver.UNITS_MAP[base_units]
+                else:
+                    # If wind speed is in knots, convert to mph which is a 
+                    # supported unit type.
+                    if pkt_type == 'wind' and base_units == 'knots':
+                        packet['usUnits'] = weewx.US
+                        packet['windSpeed'] = weewx.units.conversionDict['knot']['miles_per_hour'](packet['windSpeed'])
+                        packet['windGust'] = weewx.units.conversionDict['knot']['miles_per_hour'](packet['windGust'])
+                    # Else if a generic packet type, then it's not US or metric 
+                    # specific so pick one
+                    elif base_units == 'generic':
+                        packet['usUnits'] = weewx.US
+                    else:
+                        logerr("genLoopPackets: error with unknown base_units: %s" % base_units)
+                # For a rain packet group, calculate the delta from the last rain packet
+                if pkt_type == 'rain':
+                    self._calculate_rain_delta(packet)
+                yield packet
+            # Wait until the next polling interval
+            last_poll_this_minute = self._wait_for_next_poll_interval()
+            time.sleep(1.0)
 
+    def _wait_for_next_poll_interval(self):
+        """Wait until the next polling interval less poll leading seconds so 
+        the last poll time is before the top of the minute enabling it to 
+        complete just before each archive interval. Returns True if this is the
+        last poll interval in the minute, otherwise false."""
+        while (int(time.time()) + self.poll_lead_seconds) % int(self.poll_interval) != 0:
+            time.sleep(0.5)
+        last_poll_time = 60 - self.poll_lead_seconds
+        return(time.gmtime(time.time()).tm_sec in range(last_poll_time-1, last_poll_time+2))
 
     def _calculate_rain_delta(self, packet):
         """Convert from rain total to rain delta."""
@@ -296,6 +351,39 @@ class ColumbiaMicroServerDriver(weewx.drivers.AbstractDevice):
         self.last_rain_total = packet['rainTotal']
 
 class ColumbiaMicroServerStation(object):
+    # Map is used when parsing the MicroServer XML to determine if an input 
+    # element should be passed back or not, and if so, what packet group it
+    # belongs to. Each group can have it's own unit type as the MicroServer
+    # supports configuring each group with different units.
+    XML_INPUT_ELEMENTS = {
+        'mtWindSpeed': 'wind',
+        'mtAdjWindDir': 'wind',
+        'mt2MinWindGustSpeed': 'wind',
+        'mt2MinWindGustDir': 'wind',
+
+        'mtTemp1': 'temp',
+        'mtWindChill': 'temp',
+        'mtDewPoint': 'temp',
+        'mtHeatIndex': 'temp',
+        'mtTemp_2': 'temp',
+        'mtTemp_3': 'temp',
+        'mtTemp_4': 'temp',
+
+        'mtRainThisMonth': 'rain',
+        'mtRainRate': 'rain',
+
+        'mtAdjBaromPress': 'pressure',
+
+        'mtRelHumidity': 'generic',
+        'mtSolarRadiaton': 'generic',
+    }
+
+    # List of input fields that should be used to determine which field should
+    # be used to return the unit type for the associated packet group.
+    XML_INPUT_UNIT_ELEMENTS = [
+        'mtWindSpeed','mtTemp1','mtRainRate','mtRelHumidity','mtAdjBaromPress'
+    ]
+
     @staticmethod
     def get_data(url):
         try:
@@ -315,38 +403,52 @@ class ColumbiaMicroServerStation(object):
 
     @staticmethod
     def parse_data(data):
+        """Parse the XML data which is a flat non-hierarchical record and return 
+        a two-level dictionary hierarchy where each key is the field group and 
+        associated with that, a dictionary with the fields and values associated 
+        with that group."""
         import re
-        record = dict()
-        # If closing tag is truncated or has excess junk, fix before parsing
+        pkt_grp = dict()
+        # If closing tag is truncated or has excess junk like null bytes, 
+        # fix before parsing.
         if data.startswith('<oriondata') and not data.endswith('</oriondata>'):
             data = re.sub('</ori(ondata)?.*$','</oriondata>', data)
             logerr("parse_data(): attempted to correct truncated data: %s" % data[-19:-1])
         try:
-            root = ElementTree.fromstring(data)
-            if root.tag == 'oriondata' and root[0].tag == 'meas':
-                record.update(ColumbiaMicroServerStation.parse_weather(root))
+            elements = ElementTree.fromstring(data)
+            if elements.tag == 'oriondata' and elements[0].tag == 'meas':
+                for child in elements:
+                    name = child.attrib['name']
+                    # Ensure the correct tag and attribute is one to be recorded
+                    if child.tag == 'meas' and name in ColumbiaMicroServerStation.XML_INPUT_ELEMENTS:
+                        # Get the associated packet group for this field
+                        pkt_type = ColumbiaMicroServerStation.XML_INPUT_ELEMENTS[name]
+                        # Initialize a new dictionary for a packet group
+                        if not pkt_type in pkt_grp:
+                            pkt_grp[pkt_type] = dict()
+                        # If the field is in the list to use for the unit type,
+                        # save the unit type as the field 'base_units'.
+                        if name in ColumbiaMicroServerStation.XML_INPUT_UNIT_ELEMENTS:
+                            # If the packet type is 'generic' then it's a unit type that's
+                            # neither US or metric such as degrees for wind direction.
+                            if pkt_type == 'generic':
+                                pkt_grp[pkt_type]['base_units'] = 'generic'
+                            else:  
+                                pkt_grp[pkt_type]['base_units'] = child.attrib['unit']
+                        # Store the field and value in the dictionary for the associated packet type.
+                        pkt_grp[pkt_type][name] = float(child.text)
             else:
-                raise ElementTree.ParseError("invalid XML file. Mising <oriondat> and <meas/>")
+                raise ElementTree.ParseError("invalid XML file. Missing <oriondata> and/or <meas/> tags detected.")
         except ElementTree.ParseError as e:
             logerr("ElementTree ParseError: %s for data: %s" % (e, data))
             raise weewx.WeeWxIOError(e)
-        return record
+        return pkt_grp
 
-    @staticmethod
-    def parse_weather(elements):
-        record = dict()
-        record['base_units'] = 'English'
-        if not len(elements):
-            return record
-        for child in elements:
-            name = child.attrib['name']
-            if child.tag == 'meas' and name in ColumbiaMicroServerDriver.XML_INPUT_ELEMENTS:
-                if name.endswith('Time'):
-                    record[name] = child.text
-                else:
-                    record[name] = float(child.text)
-        return record
-
+# Define a main entry point for basic testing of the station without weewx
+# engine and service overhead.  Invoke this as follows from the weewx root directory:
+# Test this driver outside of the weewxd daemon
+#
+# PYTHONPATH=bin python bin/user/columbia_ms.py --help
 
 if __name__ == '__main__':
     import optparse
@@ -355,7 +457,6 @@ if __name__ == '__main__':
 
     def main():
         import sys
-        import syslog
         import json
         syslog.openlog('wee_' + DRIVER_SHORT_NAME, syslog.LOG_PID | syslog.LOG_CONS)
         parser = optparse.OptionParser(usage=usage)
@@ -365,6 +466,8 @@ if __name__ == '__main__':
                           help='display diagnostic information while running')
         parser.add_option('--config', dest='cfgfn', type=str, metavar="FILE",
                           help="Use configuration file FILE. Default is /etc/weewx/weewx.conf or /home/weewx/weewx.conf")
+        parser.add_option('--url', dest='url', metavar="URL",
+                          help='Full URL of the MicroServer including path info to XML data')
         parser.add_option('--host', dest='host', metavar="HOST",
                           help='hostname or ip address of the MicroServer')
         parser.add_option('--port', dest='port', type=int, metavar="PORT",
@@ -392,11 +495,12 @@ if __name__ == '__main__':
             with open(options.filename, "r") as f:
                 data = f.read()
             record = ColumbiaMicroServerStation.parse_data(data)
-            #print("record: ", record)
             json.dump(record, sys.stdout)
             exit(0)
 
         url = "http://%s:%s" % (options.host, options.port)
+        if options.url:
+            url = options.url
         print("get data from %s" % url)
         data = ColumbiaMicroServerStation.get_data(url)
         if options.debug:
